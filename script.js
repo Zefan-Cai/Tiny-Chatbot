@@ -2,7 +2,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
     const sendButton = document.getElementById('send-button');
-    const clearButton = document.querySelector('.action-button');
+    const clearButton = document.getElementById('clear-button');
+    const analyzeButton = document.getElementById('analyze-button');
 
     // Sample bot responses to randomly choose from
     const botResponses = [
@@ -149,8 +150,83 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Function to download chat history as text
+    function downloadChatHistory() {
+        // Collect all user messages
+        const userMessages = Array.from(document.querySelectorAll('.user-message .message-content p'))
+            .map(p => p.textContent)
+            .join('\n\n');
+        
+        if (!userMessages) {
+            addMessage("No messages to analyze. Please chat with me first!", false);
+            return false;
+        }
+        
+        // Create a blob with the text content
+        const blob = new Blob([userMessages], { type: 'text/plain' });
+        
+        // Send the text for MBTI analysis
+        analyzeMBTI(userMessages);
+        
+        return true;
+    }
+    
+    // Function to send text to backend for MBTI analysis
+    async function analyzeMBTI(text) {
+        try {
+            // Show typing indicator while waiting for response
+            const typingIndicator = createTypingIndicator();
+            chatMessages.appendChild(typingIndicator);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // In a real implementation, you would send this to your backend
+            // For now, we'll simulate a response
+            const response = await fetch('/analyze-mbti', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ text: text })
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to analyze personality');
+            }
+            
+            const result = await response.json();
+            
+            // Remove typing indicator
+            chatMessages.removeChild(typingIndicator);
+            
+            // Display the MBTI result
+            const mbtiMessage = `Based on our analysis, your personality type is: ${result.mbti_type} (Confidence: ${(result.confidence * 100).toFixed(2)}%)
+            
+Here's what that means:
+${result.explanation}`;
+            
+            addMessage(mbtiMessage, false);
+            
+        } catch (error) {
+            console.error('Error analyzing MBTI:', error);
+            
+            // Remove typing indicator if it exists
+            const indicator = document.querySelector('.typing-indicator');
+            if (indicator) {
+                chatMessages.removeChild(indicator);
+            }
+            
+            // Show error message
+            addMessage("Sorry, I couldn't analyze your personality at this time. Please try again later.", false);
+        }
+    }
+
     // Send button click event
     sendButton.addEventListener('click', handleUserInput);
+
+    // Analyze button click event
+    analyzeButton.addEventListener('click', function() {
+        downloadChatHistory();
+    });
 
     // Clear chat button click event
     clearButton.addEventListener('click', clearChat);
